@@ -1,7 +1,9 @@
+import os
 from typing import Dict
 
 import black
 import toml
+from isort import SortImports
 from pyls import hookimpl
 
 
@@ -30,10 +32,15 @@ def format_document(document, range=None):
             "end": {"line": len(document.lines), "character": 0},
         }
 
+    isorted_text = SortImports(
+        file_contents=text,
+        settings_path=os.path.dirname(os.path.abspath(document.path)),
+    ).output
+
     config = load_config(document.path)
 
     try:
-        formatted_text = format_text(text=text, config=config)
+        formatted_text = format_text(text=isorted_text, config=config)
     except (
         ValueError,
         # raised when the file is already formatted correctly
@@ -44,8 +51,12 @@ def format_document(document, range=None):
         # differently on the second pass
         AssertionError,
     ):
-        return []
+        if text == isorted_text:
+            return []
+        return [{"range": range, "newText": isorted_text}]
 
+    if text == formatted_text:
+        return []
     return [{"range": range, "newText": formatted_text}]
 
 
